@@ -16,7 +16,9 @@ while not env.game_done():
     print("A takes action: {}".format(action_a))
     print("B takes action: {}".format(action_b))
 
+    env.take_both_actions('A', action_a, 'B', action_b)
     env.render_text()
     print("\n")
 
     ct += 1
+
