@@ -39,53 +39,63 @@ class Player:
 
 
 class World:
-    def __init__(self, nrow, ncol):
-        assert nrow>=1 and ncol>=4
+    def __init__(self, nrow=2, ncol=4):
+        """default grid size is (2, 4) as in the paper
+
+        :param nrow: number of rows (>=1)
+        :param ncol: number of columns (>=4)
+        """
+        assert nrow >= 1 and ncol >= 4
         self.grid = Grid(nrow, ncol)
         self.done = False
         self.nrow = nrow
         self.ncol = ncol
         bcol = (ncol-1)//2
-        self.PlayerA = Player('A', Avalue, [0, bcol+1],  hasball=False)
-        self.PlayerB = Player('B', Bvalue, [0, bcol], hasball=True)
+        self.playerA = Player('A', Avalue, [0, bcol + 1], hasball=False)
+        self.playerB = Player('B', Bvalue, [0, bcol], hasball=True)
         self.legal_actions = list("EWNS0")
-
 
     def random_action(self):
         return np.random.choice(self.legal_actions)
 
+    @property
+    def actions(self):
+        return self.legal_actions[:]
+
     def player_state(self, p):
         """
-        p: "A/B"
+
+        :param p: str, "A/B"
         """
         assert p in "AB"
-        if p=='A':
-            return self.PlayerA.position+self.PlayerB.position+(self.PlayerA.hasball,)
-        elif p=='B':
-            return self.PlayerB.position+self.PlayerA.position+(self.PlayerB.hasball,)
+        if p == 'A':
+            return self.playerA.position + self.playerB.position + (self.playerA.hasball,)
+        elif p == 'B':
+            return self.playerB.position + self.playerA.position + (self.playerB.hasball,)
 
     def take_action(self, player, action):
         """
-        player take action
-        player: 'A'/'B'
-        action: 'E/W/N/S/0', '0' for stick
+
+        :param player: str, 'A'/'B'
+        :param action: 'E/W/N/S/0', '0' for stick
+        :return:
         """
         assert action in self.legal_actions, "action {} not recognized".format(action)
         if player == 'A':
-            row, col, reward, hasball, done = self.grid.accept_action(action, self.PlayerA, self.PlayerB)
+            row, col, reward, hasball, done = self.grid.accept_action(action, self.playerA, self.playerB)
         elif player == 'B':
-            row, col, reward, hasball, done = self.grid.accept_action(action, self.PlayerB, self.PlayerA)
+            row, col, reward, hasball, done = self.grid.accept_action(action, self.playerB, self.playerA)
         else:
-            raise Exception("Unknow player: {}".format(player))
+            raise Exception("Unknown player: {}".format(player))
         if done:
             self.done = done
         return row, col, reward, hasball, done
 
     def take_both_actions(self, player1, action1, player2, action2):
-        """
-        return information after both players move
-        player1,2: 'A'/'B'
-        action1,2: 'E/W/N/S/0', '0' for stick
+        """return information after both players move
+
+        :param player1,2: 'A'/'B', player1 will move first
+        :param action1,2: 'E/W/N/S/0', '0' for stick
         """
         # player 1 move
         row1, col1, r1, hasball1, done1 = self.take_action(player1, action1)
@@ -106,8 +116,8 @@ class World:
         self.grid = Grid(self.nrow, self.ncol)
         self.done = False
         bcol = (self.ncol-1)//2
-        self.PlayerA = Player('A', Avalue, [0, bcol+1],  hasball=False)
-        self.PlayerB = Player('B', Bvalue, [0, bcol], hasball=True)
+        self.playerA = Player('A', Avalue, [0, bcol + 1], hasball=False)
+        self.playerB = Player('B', Bvalue, [0, bcol], hasball=True)
 
     def game_done(self):
         """
@@ -116,12 +126,17 @@ class World:
         return self.done
 
     def render_text(self):
-        self.grid.render_text(self.PlayerA, self.PlayerB)
+        self.grid.render_text(self.playerA, self.playerB)
 
 
 class Grid:
-    action_map = {'0': [0,0], 'N':[0,-1], 'W':[-1,0], 'S':[0,1], 'E':[1,0]}
-    def  __init__(self, nrow, ncol):
+    action_map = {'0': [0, 0],
+                  'N': [0, -1],
+                  'W': [-1, 0],
+                  'S': [0, 1],
+                  'E': [1, 0]}
+
+    def __init__(self, nrow, ncol):
         # grid
         self.nrow = nrow
         self.ncol = ncol
@@ -131,9 +146,11 @@ class Grid:
 
     def accept_action(self, action, action_player, static_player):
         """
-        action: char
-        action_player: player who makes the move
-        static_player: player not taking action
+
+        :param action: char
+        :param action_player: player who makes the move
+        :param static_player: player who is not taking action
+        :return:
         """
         icol, irow = self.action_map[action]
         newrow = action_player.row + irow
@@ -144,14 +161,14 @@ class Grid:
                 action_player.dropball()
                 static_player.gainball()
                 # if static_player gains ball, and in the end zone, game over
-                reward = -self.Player_reward(static_player)
+                reward = -self.player_reward(static_player)
             else:
                 reward = 0
             newrow, newcol = action_player.row, action_player.col
         else: # no collision
             newrow, newcol = self.clip_position(newrow, newcol)
             action_player.set_position(newrow, newcol)
-            reward = self.Player_reward(action_player)
+            reward = self.player_reward(action_player)
 
         done = (reward != 0)
         return newrow, newcol, reward, action_player.hasball, done
@@ -162,7 +179,7 @@ class Grid:
         """
         return max(min(row, self.nrow-1),0), max(min(col, self.ncol-1), 0)
 
-    def Player_reward(self, p):
+    def player_reward(self, p):
         """
         after player move to a new spot, determine player's reward
         p: Player class object
@@ -174,11 +191,11 @@ class Grid:
         elif p.hasball and self.grid_vals[p.row, p.col] != p.value:
             return -100
 
-    def render_text(self, PlayerA, PlayerB):
+    def render_text(self, playerA, playerB):
         """create text representation of the world
 
-        :param PlayerA:
-        :param PlayerB:
+        :param playerA: Player object
+        :param playerB: Player object
         :return:
         """
         # create grid
@@ -191,13 +208,13 @@ class Grid:
             for icol in third_cols:
                 self.grid_text[irow, icol] = '|'
         # add player text
-        self.grid_text[1+2*PlayerA.row, 1+3*PlayerA.col] = 'A'
-        self.grid_text[1+2*PlayerB.row, 1+3*PlayerB.col] = 'B'
+        self.grid_text[1 + 2 * playerA.row, 1 + 3 * playerA.col] = 'A'
+        self.grid_text[1 + 2 * playerB.row, 1 + 3 * playerB.col] = 'B'
         # add ball
-        if PlayerA.hasball:
-            self.grid_text[1+2*PlayerA.row, 2+3*PlayerA.col] = '*'
-        elif PlayerB.hasball:
-            self.grid_text[1+2*PlayerB.row, 2+3*PlayerB.col] = '*'
+        if playerA.hasball:
+            self.grid_text[1 + 2 * playerA.row, 2 + 3 * playerA.col] = '*'
+        elif playerB.hasball:
+            self.grid_text[1 + 2 * playerB.row, 2 + 3 * playerB.col] = '*'
         # print out
         res = ["A{}B".format(' '*(self.grid_text.shape[1]-2))]
         nrow = len(self.grid_text)
